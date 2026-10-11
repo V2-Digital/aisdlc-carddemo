@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   equivalence:
     runs-on: ubuntu-latest
@@ -24,7 +28,7 @@ jobs:
           apt-get install -y --no-install-recommends gnucobol3 openjdk-21-jdk-headless maven git ca-certificates diffutils
           cobc --version | head -1 && java -version 2>&1 | head -1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Legacy golden outputs unchanged
         run: legacy/harness/golden.sh --check
