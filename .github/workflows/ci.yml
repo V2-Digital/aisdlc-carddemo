@@ -1,0 +1,44 @@
+# AI-SDLC demo CI (PLAN 4.1). Lives at the `baseline` tag of V2-Digital/aisdlc-carddemo; the agent's GitHub App
+# has no `workflows` permission, so it cannot change what judges its work.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: ["run/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  equivalence:
+    runs-on: ubuntu-latest
+    # Same toolchain as the agent image: Debian trixie GnuCOBOL 3.2 (BDB) + OpenJDK 21.
+    container: debian:trixie-slim
+    timeout-minutes: 20
+    steps:
+      - name: Toolchain
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends gnucobol3 openjdk-21-jdk-headless maven git ca-certificates diffutils
+          cobc --version | head -1 && java -version 2>&1 | head -1
+
+      - uses: actions/checkout@v4
+
+      - name: Legacy golden outputs unchanged
+        run: legacy/harness/golden.sh --check
+
+      - name: Legacy tests
+        run: |
+          shopt -s nullglob
+          for t in legacy/tests/*.sh; do echo "::group::$t"; bash "$t"; echo "::endgroup::"; done
+
+      - name: Modernized programs (JUnit equivalence)
+        run: |
+          shopt -s nullglob
+          for pom in modernized/*/pom.xml; do
+            echo "::group::$(dirname "$pom")"
+            mvn -B -q -f "$pom" test
+            echo "::endgroup::"
+          done
