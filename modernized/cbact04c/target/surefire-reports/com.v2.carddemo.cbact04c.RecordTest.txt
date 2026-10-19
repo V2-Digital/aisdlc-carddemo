@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.v2.carddemo.cbact04c.RecordTest
+-------------------------------------------------------------------------------
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.093 s -- in com.v2.carddemo.cbact04c.RecordTest
