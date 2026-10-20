@@ -167,6 +167,8 @@
            05 WS-LAST-ACCT-NUM          PIC X(11) VALUE SPACES.                 
            05 WS-MONTHLY-INT            PIC S9(09)V99.                          
            05 WS-TOTAL-INT              PIC S9(09)V99.                          
+           05 WS-FEE-AMT                PIC S9(09)V99 VALUE 25.00.              
+           05 WS-TOTAL-FEES             PIC S9(09)V99.                          
            05 WS-FIRST-TIME             PIC X(01) VALUE 'Y'.                    
        01 WS-COUNTERS.                                                          
            05 WS-RECORD-COUNT           PIC 9(09) VALUE 0.                      
@@ -203,6 +205,8 @@
                        PERFORM 1100-GET-ACCT-DATA                               
                        MOVE TRANCAT-ACCT-ID TO FD-XREF-ACCT-ID                  
                        PERFORM 1110-GET-XREF-DATA                               
+                       MOVE 0 TO WS-TOTAL-FEES                                  
+                       PERFORM 1400-COMPUTE-FEES                                
                      END-IF                                                     
       *              DISPLAY 'ACCT-GROUP-ID: ' ACCT-GROUP-ID                    
       *              DISPLAY 'TRANCAT-CD: ' TRANCAT-CD                          
@@ -213,7 +217,6 @@
                      PERFORM 1200-GET-INTEREST-RATE                             
                      IF DIS-INT-RATE NOT = 0                                    
                        PERFORM 1300-COMPUTE-INTEREST                            
-                       PERFORM 1400-COMPUTE-FEES                                
                      END-IF                                                     
                    END-IF                                                       
                ELSE                                                             
@@ -349,7 +352,7 @@
       *---------------------------------------------------------------*         
        1050-UPDATE-ACCOUNT.                                                     
       * Update the balances in account record to reflect posted trans.          
-           ADD WS-TOTAL-INT  TO ACCT-CURR-BAL                                   
+           ADD WS-TOTAL-INT WS-TOTAL-FEES TO ACCT-CURR-BAL                      
            MOVE 0 TO ACCT-CURR-CYC-CREDIT                                       
            MOVE 0 TO ACCT-CURR-CYC-DEBIT                                        
                                                                                 
@@ -482,6 +485,7 @@
            MOVE '01'                 TO TRAN-TYPE-CD                            
            MOVE '05'                 TO TRAN-CAT-CD                             
            MOVE 'System'             TO TRAN-SOURCE                             
+           MOVE SPACES               TO TRAN-DESC                               
            STRING 'Int. for a/c ' ,                                             
                   ACCT-ID                                                       
                   DELIMITED BY SIZE                                             
@@ -516,7 +520,56 @@
                                                                                 
       *---------------------------------------------------------------*         
        1400-COMPUTE-FEES.                                                       
-      * To be implemented                                                       
+      * Over-limit fee: once per account, on the balance as read.                
+           IF ACCT-CURR-BAL > ACCT-CREDIT-LIMIT                                 
+               ADD WS-FEE-AMT TO WS-TOTAL-FEES                                  
+               PERFORM 1400-B-WRITE-FEE-TX                                      
+           END-IF                                                               
+           EXIT.                                                                
+      *---------------------------------------------------------------*         
+       1400-B-WRITE-FEE-TX.                                                     
+           ADD 1 TO WS-TRANID-SUFFIX                                            
+                                                                                
+           STRING PARM-DATE,                                                    
+                  WS-TRANID-SUFFIX                                              
+             DELIMITED BY SIZE                                                  
+             INTO TRAN-ID                                                       
+           END-STRING.                                                          
+                                                                                
+           MOVE '01'                 TO TRAN-TYPE-CD                            
+           MOVE '06'                 TO TRAN-CAT-CD                             
+           MOVE 'System'             TO TRAN-SOURCE                             
+           MOVE SPACES               TO TRAN-DESC                               
+           STRING 'Over-limit fee for a/c ' ,                                   
+                  ACCT-ID                                                       
+                  DELIMITED BY SIZE                                             
+            INTO TRAN-DESC                                                      
+           END-STRING                                                           
+           MOVE WS-FEE-AMT           TO TRAN-AMT                                
+           MOVE 0                    TO TRAN-MERCHANT-ID                        
+           MOVE SPACES               TO TRAN-MERCHANT-NAME                      
+           MOVE SPACES               TO TRAN-MERCHANT-CITY                      
+           MOVE SPACES               TO TRAN-MERCHANT-ZIP                       
+           MOVE XREF-CARD-NUM        TO TRAN-CARD-NUM                           
+           PERFORM Z-GET-DB2-FORMAT-TIMESTAMP                                   
+           MOVE DB2-FORMAT-TS        TO TRAN-ORIG-TS                            
+           MOVE DB2-FORMAT-TS        TO TRAN-PROC-TS                            
+                                                                                
+           WRITE FD-TRANFILE-REC FROM TRAN-RECORD                               
+           IF  TRANFILE-STATUS   = '00'                                         
+               MOVE 0 TO APPL-RESULT                                            
+           ELSE                                                                 
+               MOVE 12 TO APPL-RESULT                                           
+           END-IF                                                               
+                                                                                
+           IF  APPL-AOK                                                         
+               CONTINUE                                                         
+           ELSE                                                                 
+               DISPLAY 'ERROR WRITING TRANSACTION RECORD'                       
+               MOVE TRANFILE-STATUS   TO IO-STATUS                              
+               PERFORM 9910-DISPLAY-IO-STATUS                                   
+               PERFORM 9999-ABEND-PROGRAM                                       
+           END-IF                                                               
            EXIT.                                                                
       *---------------------------------------------------------------*         
        9000-TCATBALF-CLOSE.                                                     
