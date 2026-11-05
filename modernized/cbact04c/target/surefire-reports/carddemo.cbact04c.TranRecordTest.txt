@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: carddemo.cbact04c.TranRecordTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.685 s -- in carddemo.cbact04c.TranRecordTest
