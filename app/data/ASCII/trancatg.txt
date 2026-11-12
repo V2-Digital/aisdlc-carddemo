@@ -3,6 +3,7 @@
 010003Convenience Check Debit                           0000
 010004ATM Cash Advance                                  0000
 010005Interest Amount                                   0000
+010006Over-limit Fee                                    0000
 020001Cash payment                                      0000
 020002Electronic payment                                0000
 020003Check payment                                     0000
